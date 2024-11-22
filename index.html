@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Thermal Transformation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+        :root {
+            --bg-dark: #121212;
+            --bg-darker: #0a0a0a;
+            --accent-color: #4A90E2;
+            --text-primary: #E0E0E0;
+            --text-secondary: #888888;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            perspective: 1000px;
+        }
+
+        .container {
+            background-color: var(--bg-darker);
+            border-radius: 20px;
+            padding: 40px;
+            width: 600px;
+            box-shadow: 
+                0 15px 30px rgba(0,0,0,0.4),
+                0 0 40px rgba(74,144,226,0.2);
+            border: 1px solid rgba(74,144,226,0.2);
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            transform: rotateX(10deg);
+        }
+
+        #letterContainer {
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            perspective: 500px;
+            position: relative;
+        }
+
+        #letter {
+            font-size: 250px;
+            font-weight: 600;
+            text-shadow: 0 0 20px rgba(74,144,226,0.5);
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+            z-index: 10;
+        }
+
+        .melt-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, 
+                rgba(255,69,0,0.8), 
+                rgba(255,69,0,0) 80%);
+            transition: height 0.5s ease;
+            z-index: 5;
+        }
+
+        .temperature-control-wrapper {
+            margin-top: 30px;
+            position: relative;
+        }
+
+        #temperatureControl {
+            width: 100%;
+            appearance: none;
+            background: transparent;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        #temperatureControl:hover {
+            opacity: 1;
+        }
+
+        #temperatureControl::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to right, 
+                #4A90E2 0%, 
+                #FF4500 100%);
+            border-radius: 5px;
+        }
+
+        #temperatureControl::-webkit-slider-thumb {
+            appearance: none;
+            width: 25px;
+            height: 25px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(74,144,226,0.5);
+        }
+
+        #temperatureDisplay {
+            text-align: center;
+            font-size: 24px;
+            margin-top: 15px;
+            color: var(--text-secondary);
+        }
+
+        /* Background Particles */
+        .particle {
+            position: absolute;
+            background: rgba(74,144,226,0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* New Element Styles */
+        #letterSelector {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        #letterSelector button {
+            background-color: var(--accent-color);
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #letterSelector button:hover {
+            background-color: #6AB0F2;
+        }
+
+        #stageDescription {
+            text-align: center;
+            margin-top: 20px;
+            color: var(--text-secondary);
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        #heatChart {
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(to right, 
+                #4A90E2 0%, 
+                #FF6347 33%, 
+                #FF4500 66%, 
+                #8B0000 100%);
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="letterSelector">
+            <button data-letter="A">A</button>
+            <button data-letter="B">B</button>
+            <button data-letter="C">C</button>
+        </div>
+        <div id="letterContainer">
+            <div id="letter">A</div>
+            <div id="meltOverlay" class="melt-overlay"></div>
+        </div>
+        <div id="heatChart"></div>
+        <div class="temperature-control-wrapper">
+            <input 
+                type="range" 
+                id="temperatureControl" 
+                min="0" 
+                max="1000" 
+                value="0"
+            >
+            <div id="temperatureDisplay">Temperature: 0°C</div>
+            <div id="stageDescription">Initial State</div>
+        </div>
+    </div>
+
+    <script>
+        const letter = document.getElementById('letter');
+        const meltOverlay = document.getElementById('meltOverlay');
+        const temperatureControl = document.getElementById('temperatureControl');
+        const temperatureDisplay = document.getElementById('temperatureDisplay');
+        const container = document.querySelector('.container');
+        const letterSelector = document.getElementById('letterSelector');
+        const stageDescription = document.getElementById('stageDescription');
+
+        // Melting points and transformations
+        const meltingPoints = {
+            normal: {
+                color: '#E0E0E0',
+                transform: 'none',
+                opacity: 1,
+                description: 'Solid State: Stable and Intact'
+            },
+            softening: {
+                color: '#FF6347',
+                transform: 'scaleY(0.9) rotateX(10deg)',
+                opacity: 0.9,
+                description: 'Softening: Beginning to Deform'
+            },
+            melting: {
+                color: '#FF4500',
+                transform: 'scaleY(0.6) skew(5deg) rotateX(20deg)',
+                opacity: 0.7,
+                description: 'Melting: Transitioning to Liquid'
+            },
+            liquid: {
+                color: '#8B0000',
+                transform: 'scaleY(0.3) rotate(10deg) rotateX(30deg)',
+                opacity: 0.5,
+                description: 'Liquid State: Complete Transformation'
+            }
+        };
+
+        // Particle animation
+        function createParticles() {
+            // Remove existing particles first
+            const existingParticles = document.querySelectorAll('.particle');
+            existingParticles.forEach(p => p.remove());
+
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                
+                particle.style.width = `${Math.random() * 5}px`;
+                particle.style.height = particle.style.width;
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.top = `${Math.random() * 100}%`;
+                
+                particle.style.animation = `float ${5 + Math.random() * 5}s infinite alternate`;
+                
+                container.appendChild(particle);
+            }
+        }
+
+        // Add floating particle animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes float {
+                from { transform: translateY(0) scale(1); opacity: 0.3; }
+                to { transform: translateY(-20px) scale(1.2); opacity: 0.1; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Letter Selector
+        letterSelector.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON') {
+                letter.textContent = e.target.dataset.letter;
+                // Reset temperature when changing letter
+                temperatureControl.value = 0;
+                temperatureControl.dispatchEvent(new Event('input'));
+            }
+        });
+
+        // Temperature control logic
+        temperatureControl.addEventListener('input', function() {
+            const currentTemp = parseInt(this.value);
+            
+            // Update temperature display
+            temperatureDisplay.textContent = `Temperature: ${currentTemp}°C`;
+
+            // Determine melting stage and apply transformations
+            if (currentTemp < 200) {
+                // Normal state
+                letter.style.color = meltingPoints.normal.color;
+                letter.style.transform = meltingPoints.normal.transform;
+                letter.style.opacity = meltingPoints.normal.opacity;
+                meltOverlay.style.height = '0%';
+                stageDescription.textContent = meltingPoints.normal.description;
+            } else if (currentTemp < 400) {
+                // Softening stage
+                letter.style.color = meltingPoints.softening.color;
+                letter.style.transform = meltingPoints.softening.transform;
+                letter.style.opacity = meltingPoints.softening.opacity;
+                meltOverlay.style.height = '20%';
+                stageDescription.textContent = meltingPoints.softening.description;
+            } else if (currentTemp < 600) {
+                // Melting stage
+                letter.style.color = meltingPoints.melting.color;
+                letter.style.transform = meltingPoints.melting.transform;
+                letter.style.opacity = meltingPoints.melting.opacity;
+                meltOverlay.style.height = '50%';
+                stageDescription.textContent = meltingPoints.melting.description;
+            } else {
+                // Liquid stage
+                letter.style.color = meltingPoints.liquid.color;
+                letter.style.transform = meltingPoints.liquid.transform;
+                letter.style.opacity = meltingPoints.liquid.opacity;
+                meltOverlay.style.height = '80%';
+                stageDescription.textContent = meltingPoints.liquid.description;
+            }
+        });
+
+        // Initialize
+        createParticles();
+    </script>
+</body>
+</html>
